@@ -1,0 +1,24 @@
+{
+  "name": "kuantaz/sitio-confianza-mdsf",
+  "description": "Librería de integración de Sitio de Confianza con MDSFID/VUS (flujo de identidad).",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Kuantaz",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+    "php": ">=8.2",
+    "psr/log": "^3.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Kuantaz\\\\SitioConfianzaMDSF\\\\": "src/"
+    }
+  },
+  "require-dev": {},
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}

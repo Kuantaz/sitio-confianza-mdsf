@@ -4,7 +4,6 @@ namespace Kuantaz\SitioConfianzaMDSF;
 
 use Kuantaz\SitioConfianzaMDSF\Config\MdsfidConfig;
 use Kuantaz\SitioConfianzaMDSF\Exceptions\MdsfidException;
-use Psr\Log\LoggerInterface;
 
 /**
  * Cliente HTTP genérico para MDSFID.
@@ -35,7 +34,6 @@ class MdsfidClient
          *   function (): string
          */
         private readonly callable $jwtTokenProvider,
-        private readonly ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -78,17 +76,10 @@ class MdsfidClient
         $data = $response['json'] ?? null;
 
         if ($status < 200 || $status >= 300 || !is_array($data)) {
-            $this->logger?->error('MDSFID crearidentidad failed', [
-                'status' => $status,
-                'body'   => $body,
-                'url'    => $url,
-            ]);
-
             throw new MdsfidException('Error en comunicación con MDSFID (crearidentidad)');
         }
 
         if (!isset($data['data']['id_token'])) {
-            $this->logger?->error('MDSFID response missing id_token', ['data' => $data]);
             throw new MdsfidException('Respuesta inválida de MDSFID: falta id_token');
         }
 
@@ -129,34 +120,18 @@ class MdsfidClient
         $data = $response['json'] ?? null;
 
         if ($status < 200 || $status >= 300 || !is_array($data)) {
-            $this->logger?->error('MDSFID validaridentidad failed', [
-                'status' => $status,
-                'body'   => $body,
-            ]);
             throw new MdsfidException('Error validando identidad con MDSFID');
         }
 
         if (!isset($data['code'])) {
-            $this->logger?->error('MDSFID validaridentidad failed no code', [
-                'status' => $status,
-                'body'   => $body,
-            ]);
             throw new MdsfidException('Error validando identidad con MDSFID (sin code)');
         }
 
         if ($data['code'] !== 1000) {
-            $this->logger?->error('MDSFID validaridentidad failed by code', [
-                'status' => $status,
-                'body'   => $body,
-            ]);
             throw new MdsfidException('Error validando identidad con MDSFID (code distinto de 1000)');
         }
 
         if (!isset($data['data']) || !is_array($data['data'])) {
-            $this->logger?->error('MDSFID validaridentidad data missing', [
-                'status' => $status,
-                'body'   => $body,
-            ]);
             throw new MdsfidException('Respuesta inválida de MDSFID (sin data)');
         }
 

@@ -14,7 +14,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Kuantaz\\\\SitioConfianzaMDSF\\\\": "src/"
+      "Kuantaz\\SitioConfianzaMDSF\\": "src/"
     }
   },
   "require-dev": {},

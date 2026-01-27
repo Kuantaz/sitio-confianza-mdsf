@@ -33,6 +33,7 @@ class MdsfidClient
     private function generateJwtToken(): string
     {
         $payload = [
+            'iss' => $this->key, // Issuer: identificador del cliente
             'iat' => time(),
             'exp' => time() + 3600, // 1 hora de validez
         ];

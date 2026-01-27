@@ -2,39 +2,74 @@
 
 namespace Kuantaz\SitioConfianzaMDSF;
 
+use Firebase\JWT\JWT;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use Kuantaz\SitioConfianzaMDSF\Config\MdsfidConfig;
 use Kuantaz\SitioConfianzaMDSF\Exceptions\MdsfidException;
 
 /**
- * Cliente HTTP genérico para MDSFID.
+ * Cliente HTTP para MDSFID.
  *
- * Nota: esta clase NO depende de Laravel. El token JWT y el cliente HTTP
- * concreto se inyectarán desde la aplicación que use la librería.
+ * Esta clase maneja internamente la comunicación HTTP y la generación de tokens JWT.
  */
 class MdsfidClient
 {
+    private readonly Client $httpClient;
+
     public function __construct(
         public readonly MdsfidConfig $config,
-        /**
-         * Cliente HTTP genérico.
-         *
-         * Debe ser un callable con firma:
-         *   function (string $method, string $url, array $options): array
-         *
-         * Y retornar un arreglo con al menos:
-         *   - 'status' (int)
-         *   - 'body' (string)
-         *   - 'json' (array|null) si la respuesta es JSON parseado
-         */
-        private readonly callable $httpClient,
-        /**
-         * Proveedor de token JWT para autenticarse contra MDSFID.
-         *
-         * Firma:
-         *   function (): string
-         */
-        private readonly callable $jwtTokenProvider,
+        private readonly string $secret,
+        private readonly string $key,
     ) {
+        $this->httpClient = new Client([
+            'timeout' => $this->config->timeoutSeconds,
+        ]);
+    }
+
+    /**
+     * Genera un token JWT para autenticarse contra MDSFID.
+     */
+    private function generateJwtToken(): string
+    {
+        $payload = [
+            'iat' => time(),
+            'exp' => time() + 3600, // 1 hora de validez
+        ];
+
+        return JWT::encode($payload, $this->secret, 'HS256', $this->key);
+    }
+
+    /**
+     * Realiza una petición HTTP usando Guzzle.
+     *
+     * @param string $method Método HTTP (GET, POST, etc.)
+     * @param string $url URL completa
+     * @param array $options Opciones de Guzzle
+     * @return array Con 'status', 'body' y 'json'
+     * @throws MdsfidException
+     */
+    private function makeHttpRequest(string $method, string $url, array $options): array
+    {
+        try {
+            $response = $this->httpClient->request($method, $url, $options);
+            $status = $response->getStatusCode();
+            $body = (string) $response->getBody();
+            $json = null;
+
+            $contentType = $response->getHeaderLine('Content-Type');
+            if (str_contains($contentType, 'application/json')) {
+                $json = json_decode($body, true);
+            }
+
+            return [
+                'status' => $status,
+                'body' => $body,
+                'json' => $json,
+            ];
+        } catch (GuzzleException $e) {
+            throw new MdsfidException('Error en comunicación HTTP con MDSFID: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -53,7 +88,7 @@ class MdsfidClient
 
         $url = rtrim($baseUrl, '/') . '/' . ltrim($path, '/');
 
-        $token = ($this->jwtTokenProvider)();
+        $token = $this->generateJwtToken();
 
         $options = [
             'headers' => [
@@ -61,7 +96,6 @@ class MdsfidClient
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
             ],
-            'timeout' => $this->config->timeoutSeconds,
             'json' => [
                 'id_user'   => $idUserJson,
                 'id_client' => $clientId,
@@ -69,10 +103,9 @@ class MdsfidClient
             ],
         ];
 
-        $response = ($this->httpClient)('POST', $url, $options);
+        $response = $this->makeHttpRequest('POST', $url, $options);
 
         $status = (int) ($response['status'] ?? 0);
-        $body = (string) ($response['body'] ?? '');
         $data = $response['json'] ?? null;
 
         if ($status < 200 || $status >= 300 || !is_array($data)) {
@@ -100,23 +133,21 @@ class MdsfidClient
 
         $url = rtrim($baseUrl, '/') . '/' . ltrim($path, '/');
 
-        $token = ($this->jwtTokenProvider)();
+        $token = $this->generateJwtToken();
 
         $options = [
             'headers' => [
                 'Authorization' => 'Bearer ' . $token,
                 'Accept'        => 'application/json',
             ],
-            'timeout' => $this->config->timeoutSeconds,
             'query' => [
                 'id_token' => $idToken,
             ],
         ];
 
-        $response = ($this->httpClient)('GET', $url, $options);
+        $response = $this->makeHttpRequest('GET', $url, $options);
 
         $status = (int) ($response['status'] ?? 0);
-        $body = (string) ($response['body'] ?? '');
         $data = $response['json'] ?? null;
 
         if ($status < 200 || $status >= 300 || !is_array($data)) {
@@ -138,4 +169,3 @@ class MdsfidClient
         return $data['data'];
     }
 }
-

@@ -2,7 +2,7 @@
 
 namespace Kuantaz\SitioConfianzaMDSF\Config;
 
-class VuConfig
+class ExternalConfig
 {
     public function __construct(
         public readonly string $baseUrl,
@@ -17,4 +17,3 @@ class VuConfig
     ) {
     }
 }
-

@@ -2,24 +2,24 @@
 
 namespace Kuantaz\SitioConfianzaMDSF;
 
-use Kuantaz\SitioConfianzaMDSF\Config\VuConfig;
+use Kuantaz\SitioConfianzaMDSF\Config\ExternalConfig;
 use Kuantaz\SitioConfianzaMDSF\Contracts\StateStoreInterface;
 use Kuantaz\SitioConfianzaMDSF\DTO\VuIdentityDTO;
 use Kuantaz\SitioConfianzaMDSF\Exceptions\MdsfidException;
 
 /**
- * Orquestador del flujo de autenticación con VUS/MDSFID.
+ * Orquestador del flujo de autenticación con sistemas externos (VUS/MDSFID).
  *
  * Esta clase se mantendrá agnóstica del framework. Aquí solo definimos
  * la estructura básica; la lógica concreta se implementará en pasos
  * posteriores del refactor.
  */
-class VuAuthFlow
+class ExternalAuthFlow
 {
     public const DEFAULT_STATE_KEY = 'sitio_confianza_mdsfid_auth_state';
 
     public function __construct(
-        public readonly VuConfig $config,
+        public readonly ExternalConfig $config,
         public readonly MdsfidClient $mdsfidClient,
         public readonly StateStoreInterface $stateStore,
         private readonly string $stateKey = self::DEFAULT_STATE_KEY,
@@ -30,7 +30,7 @@ class VuAuthFlow
      * Inicia el flujo de login:
      * - Genera un state aleatorio.
      * - Lo persiste vía StateStoreInterface.
-     * - Construye y retorna la URL de autenticación en VUS.
+     * - Construye y retorna la URL de autenticación en el sistema externo.
      *
      * La aplicación consumidora solo debe redirigir a esa URL.
      *
@@ -39,7 +39,7 @@ class VuAuthFlow
     public function startLogin(string $redirectUri): string
     {
         if (!$this->isValidRedirectUri($redirectUri)) {
-            throw new \InvalidArgumentException('redirect_uri no permitido para VUS');
+            throw new \InvalidArgumentException('redirect_uri no permitido para el sistema externo');
         }
 
         $state = $this->generateState();
@@ -135,4 +135,3 @@ class VuAuthFlow
         return bin2hex(random_bytes(16));
     }
 }
-

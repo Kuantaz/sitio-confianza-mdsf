@@ -7,14 +7,14 @@ Separa la lógica de comunicación con MDSFID y el manejo de `id_token` de la l�
 
 ### Características
 
-- Cliente HTTP genérico para MDSFID (`MdsfidClient`).
-- Orquestador de flujo de autenticación con VUS/MDSFID (`VuAuthFlow`).
+- Cliente HTTP para MDSFID (`MdsfidClient`) con HTTP client y generación de JWT internos.
+- Orquestador de flujo de autenticación con sistemas externos (`ExternalAuthFlow`).
 - DTO de identidad (`VuIdentityDTO`) que normaliza los datos devueltos.
 - Contratos para integrar con cualquier aplicación:
   - `LoginHandlerInterface`
   - `PostLoginRedirectInterface`
   - `StateStoreInterface`
-- Soporta **múltiples integraciones** en una misma app mediante instancias configurables (`MdsfidConfig`, `VuConfig`).
+- Soporta **múltiples integraciones** en una misma app mediante instancias configurables (`MdsfidConfig`, `ExternalConfig`).
 
 ---
 
@@ -34,6 +34,13 @@ Kuantaz\SitioConfianzaMDSF\
 
 3. A partir de ahí podrás usar las clases de la librería directamente en tu aplicación (Laravel u otra) sin configuración adicional de autoload.
 
+4. Configurar las variables de entorno necesarias:
+
+```bash
+API_PROCESS_MDSFID_JWT_SECRET=tu_secret_aqui
+API_PROCESS_MDSFID_JWT_KEY=tu_key_aqui
+```
+
 ---
 
 ### Conceptos principales
@@ -51,10 +58,10 @@ new MdsfidConfig(
 );
 ```
 
-- `Kuantaz\SitioConfianzaMDSF\Config\VuConfig`
+- `Kuantaz\SitioConfianzaMDSF\Config\ExternalConfig`
 
 ```php
-new VuConfig(
+new ExternalConfig(
     baseUrl: 'https://vus.mdsf.cl',
     authPath: '/mdsfid/auth',
     clientId: 'CLIENT_ID_ENTREGADO_POR_VUS',
@@ -66,44 +73,49 @@ new VuConfig(
 
 - `Kuantaz\SitioConfianzaMDSF\MdsfidClient`
 
+El cliente maneja internamente la comunicación HTTP (usando Guzzle) y la generación de tokens JWT.
+
 Requiere:
 
 - `MdsfidConfig`
-- `callable $httpClient`  
-  Firma: `function (string $method, string $url, array $options): array`
-- `callable $jwtTokenProvider`  
-  Firma: `function (): string`
-- `Psr\Log\LoggerInterface|null` (opcional)
+- `string $secret` - Secret para la generación del JWT (usar `API_PROCESS_MDSFID_JWT_SECRET`)
+- `string $key` - Key ID para el JWT (usar `API_PROCESS_MDSFID_JWT_KEY`)
 
-Métodos clave:
+Ejemplo de uso:
 
 ```php
+$mdsfidClient = new MdsfidClient(
+    config: $mdsfidConfig,
+    secret: env('API_PROCESS_MDSFID_JWT_SECRET', 'Kdt682W+'),
+    key: env('API_PROCESS_MDSFID_JWT_KEY', 'mdsfid-dev'),
+);
+
 $idToken = $mdsfidClient->crearIdentidad($idUserJson, $clientId, $redirectUri);
 
 $payload = $mdsfidClient->validarIdentidad($idToken); // array
 ```
 
-#### Flujo VUS
+#### Flujo de Autenticación Externa
 
-- `Kuantaz\SitioConfianzaMDSF\VuAuthFlow`
+- `Kuantaz\SitioConfianzaMDSF\ExternalAuthFlow`
 
 Requiere:
 
-- `VuConfig`
+- `ExternalConfig`
 - `MdsfidClient`
 - `StateStoreInterface` (para guardar/recuperar el `state`)
 
 Métodos principales:
 
 ```php
-// 1. Inicio de login: construir URL de VUS
-$authUrl = $vuAuthFlow->startLogin($redirectUri); // redirigir a esta URL
+// 1. Inicio de login: construir URL del sistema externo
+$authUrl = $externalAuthFlow->startLogin($redirectUri); // redirigir a esta URL
 
 // 2. Validar state a la vuelta
-$isValid = $vuAuthFlow->validateState($receivedState);
+$isValid = $externalAuthFlow->validateState($receivedState);
 
 // 3. Obtener identidad a partir de id_token
-$identityDto = $vuAuthFlow->obtenerIdentidadDesdeToken($idToken); // VuIdentityDTO
+$identityDto = $externalAuthFlow->obtenerIdentidadDesdeToken($idToken); // VuIdentityDTO
 ```
 
 ---
@@ -161,7 +173,7 @@ public function start()
 {
     $redirectUri = route('vu.confirmar');
 
-    $authUrl = $this->vuAuthFlow->startLogin($redirectUri);
+    $authUrl = $this->externalAuthFlow->startLogin($redirectUri);
 
     return redirect()->away($authUrl);
 }
@@ -171,11 +183,11 @@ public function confirm(Request $request)
     $state = $request->input('state');
     $idToken = $request->input('id_token');
 
-    if (! $this->vuAuthFlow->validateState($state)) {
+    if (! $this->externalAuthFlow->validateState($state)) {
         // manejar error de CSRF / state inválido
     }
 
-    $identity = $this->vuAuthFlow->obtenerIdentidadDesdeToken($idToken);
+    $identity = $this->externalAuthFlow->obtenerIdentidadDesdeToken($idToken);
 
     $user = $this->loginHandler->login($identity);
 
@@ -187,7 +199,16 @@ public function confirm(Request $request)
 
 ### Multi-integración
 
-Puedes crear tantas instancias de `MdsfidClient` y `VuAuthFlow` como necesites, cada una con su propio par `MdsfidConfig` / `VuConfig`, permitiendo manejar más de una integración VUS/MDSFID en la misma aplicación.
+Puedes crear tantas instancias de `MdsfidClient` y `ExternalAuthFlow` como necesites, cada una con su propio par `MdsfidConfig` / `ExternalConfig`, permitiendo manejar más de una integración VUS/MDSFID en la misma aplicación.
+
+### Variables de Entorno Requeridas
+
+La librería requiere las siguientes variables de entorno para funcionar correctamente:
+
+- `API_PROCESS_MDSFID_JWT_SECRET`: Secret utilizado para la generación de tokens JWT
+- `API_PROCESS_MDSFID_JWT_KEY`: Key ID utilizado en la generación de tokens JWT
+
+Estas variables deben estar configuradas en tu aplicación antes de instanciar `MdsfidClient`.
 
 ---
 

@@ -29,6 +29,8 @@ class MdsfidClient
 
     /**
      * Genera un token JWT para autenticarse contra MDSFID.
+     *
+     * El secret debe ser decodificado desde Base64 antes de usarlo para firmar el JWT.
      */
     private function generateJwtToken(): string
     {
@@ -38,7 +40,13 @@ class MdsfidClient
             'exp' => time() + 3600, // 1 hora de validez
         ];
 
-        return JWT::encode($payload, $this->secret, 'HS256', $this->key);
+        // Decodificar el secret desde Base64 (según documentación MDSFID)
+        $decodedSecret = base64_decode($this->secret, true);
+        if ($decodedSecret === false) {
+            throw new MdsfidException('El secret no es un string Base64 válido.');
+        }
+
+        return JWT::encode($payload, $decodedSecret, 'HS256', $this->key);
     }
 
     /**

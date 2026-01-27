@@ -34,10 +34,11 @@ class MdsfidClient
      */
     private function generateJwtToken(): string
     {
+        $now = time();
         $payload = [
             'iss' => $this->key, // Issuer: identificador del cliente
-            'iat' => time(),
-            'exp' => time() + 3600, // 1 hora de validez
+            'iat' => $now,
+            'exp' => $now + $this->config->jwtExpirationSeconds,
         ];
 
         // Decodificar el secret desde Base64 (según documentación MDSFID)

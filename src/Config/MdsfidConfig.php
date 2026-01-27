@@ -9,6 +9,7 @@ class MdsfidConfig
         public readonly string $crearIdentidadPath,
         public readonly string $validarIdentidadPath,
         public readonly int $timeoutSeconds = 10,
+        public readonly int $jwtExpirationSeconds = 300, // 5 minutos por defecto
     ) {
     }
 }

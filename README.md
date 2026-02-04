@@ -39,6 +39,8 @@ Kuantaz\SitioConfianzaMDSF\
 ```bash
 API_PROCESS_MDSFID_JWT_SECRET=tu_secret_aqui
 API_PROCESS_MDSFID_JWT_KEY=tu_key_aqui
+# Opcional: si el secret está codificado en Base64, usar true (por defecto: false)
+MDSFID_SECRET_IS_BASE64=false
 ```
 
 ---
@@ -55,6 +57,8 @@ new MdsfidConfig(
     crearIdentidadPath: '/process/v1/mdsfid/crearidentidad',
     validarIdentidadPath: '/process/v1/mdsfid/validaridentidad',
     timeoutSeconds: 10,
+    jwtExpirationSeconds: 300,
+    secretIsBase64: filter_var(env('MDSFID_SECRET_IS_BASE64', false), FILTER_VALIDATE_BOOLEAN),
 );
 ```
 
@@ -207,6 +211,7 @@ La librería requiere las siguientes variables de entorno para funcionar correct
 
 - `API_PROCESS_MDSFID_JWT_SECRET`: Secret utilizado para la generación de tokens JWT
 - `API_PROCESS_MDSFID_JWT_KEY`: Key ID utilizado en la generación de tokens JWT
+- `MDSFID_SECRET_IS_BASE64`: Si el secret está codificado en Base64, usar `true`. Por defecto `false` (el secret se usa tal cual).
 
 Estas variables deben estar configuradas en tu aplicación antes de instanciar `MdsfidClient`.
 
